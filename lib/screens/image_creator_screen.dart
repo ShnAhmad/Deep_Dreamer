@@ -6,7 +6,6 @@ class ImageCreatorScreen extends StatefulWidget {
   const ImageCreatorScreen({super.key});
 
   @override
-  // ignore: library_private_types_in_public_api
   _ImageCreatorScreenState createState() => _ImageCreatorScreenState();
 }
 
@@ -16,78 +15,132 @@ class _ImageCreatorScreenState extends State<ImageCreatorScreen> {
   bool _isLoading = false;
 
   Future<void> _searchImages() async {
-    setState(() {
-      _isLoading = true;
-    });
+    if (_promptController.text.trim().isNotEmpty) {
+      setState(() {
+        _isLoading = true;
+      });
 
-    try {
-      final imageUrls =
-          await ImageService.searchAiImages(_promptController.text);
-      setState(() {
-        _imageUrls = imageUrls;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to search images: ${e.toString()}')),
-      );
+      try {
+        final imageUrls =
+            await ImageService.searchAiImages(_promptController.text);
+        setState(() {
+          _imageUrls = imageUrls;
+          _isLoading = false;
+        });
+      } catch (e) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to search images: ${e.toString()}')),
+        );
+      }
     }
+  }
+
+  void _dismissKeyboard() {
+    FocusScope.of(context).requestFocus(FocusNode());
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('AI Image Creater'),
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: TextField(
-              controller: _promptController,
-              decoration: InputDecoration(
-                labelText: 'Enter a prompt',
-                border: const OutlineInputBorder(),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.search),
-                  onPressed: _searchImages,
+    return GestureDetector(
+      onTap: _dismissKeyboard,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('AI Image Creator'),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+        ),
+        body: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              TextField(
+                controller: _promptController,
+                style: const TextStyle(fontSize: 18),
+                decoration: InputDecoration(
+                  hintText: 'Enter a prompt',
+                  filled: true,
+                  fillColor: Colors.grey[200],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 16,
+                    horizontal: 24,
+                  ),
                 ),
+                onSubmitted: (_) => _searchImages(),
               ),
-              onSubmitted: (_) => _searchImages(),
+              const SizedBox(height: 16),
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _imageUrls.isEmpty
+                        ? const Center(child: Text('No images found'))
+                        : GridView.builder(
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              childAspectRatio: 1.0,
+                              crossAxisSpacing: 16,
+                              mainAxisSpacing: 16,
+                            ),
+                            itemCount: _imageUrls.length,
+                            padding: const EdgeInsets.all(16),
+                            itemBuilder: (context, index) {
+                              return ClipRoundedImage(
+                                imageUrl: _imageUrls[index],
+                              );
+                            },
+                          ),
+              ),
+            ],
+          ),
+        ),
+        bottomNavigationBar: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: ElevatedButton(
+            onPressed: _searchImages,
+            style: ElevatedButton.styleFrom(
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              backgroundColor: Colors.blue,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text(
+              'Create',
+              style: TextStyle(fontSize: 18),
             ),
           ),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _imageUrls.isEmpty
-                    ? const Center(child: Text('No images found'))
-                    : GridView.builder(
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          childAspectRatio: 1.0,
-                          crossAxisSpacing: 10,
-                          mainAxisSpacing: 10,
-                        ),
-                        itemCount: _imageUrls.length,
-                        padding: const EdgeInsets.all(10),
-                        itemBuilder: (context, index) {
-                          return CachedNetworkImage(
-                            imageUrl: _imageUrls[index],
-                            fit: BoxFit.cover,
-                            placeholder: (context, url) => const Center(
-                                child: CircularProgressIndicator()),
-                            errorWidget: (context, url, error) =>
-                                const Icon(Icons.error),
-                          );
-                        },
-                      ),
-          ),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+class ClipRoundedImage extends StatelessWidget {
+  final String imageUrl;
+
+  const ClipRoundedImage({
+    super.key,
+    required this.imageUrl,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: CachedNetworkImage(
+        imageUrl: imageUrl,
+        fit: BoxFit.cover,
+        placeholder: (context, url) =>
+            const Center(child: CircularProgressIndicator()),
+        errorWidget: (context, url, error) => const Icon(Icons.error),
       ),
     );
   }
